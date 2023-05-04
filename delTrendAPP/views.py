@@ -7,7 +7,7 @@ from mcom_website.settings import MEDIA_ROOT,MEDIA_URL
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.core.files.storage import FileSystemStorage
-from zipfile import ZipFile
+# from zipfile import ZipFile
 from tkinter import *
 import tkinter as tk
 from tkinter import filedialog,messagebox,ttk
@@ -20,7 +20,7 @@ import glob
 
 
 @api_view(['POST'])
-def old_del4G_trend(request):
+def old_del_trend(request):
     raw_kpi_4G=request.FILES['raw_kpi_4G'] if 'raw_kpi_4G' in request.FILES else None
     print("raw------------------",raw_kpi_4G)
 
@@ -46,8 +46,30 @@ def old_del4G_trend(request):
         print(df_site_4G)
         os.remove(path=file_path)
 
+    raw_kpi_2G=request.FILES['raw_kpi_2G'] if 'raw_kpi_2G' in request.FILES else None
+    print('________________________________raw__________________')
+    if raw_kpi_2G:
+        location=MEDIA_ROOT +r'\trends\temporary_files'
+        print("_____________location",location)
+        fs=FileSystemStorage(location=location)
+        file_2G=fs.save(raw_kpi_2G.name,raw_kpi_2G)
+        file_2G_path=fs.path(file_2G)
+        df_raw_kpi_2G=pd.read_excel(file_2G_path)
+        print(df_raw_kpi_2G)
+        os.remove(path=file_2G_path)
+
+    site_list_2G=request.FILES['site_list_2G'] if 'site_list_2G' in request.FILES else None
+    if site_list_2G:
+        location=MEDIA_ROOT+r'\trends\temporary_files'
+        fs=FileSystemStorage(location=location)
+        file_2G_sheet=fs.save(site_list_2G.name,site_list_2G)
+        file_2G_path=fs.path(file_2G_sheet)
+        df_2G_site=pd.read_excel(file_2G_path)
+        print(df_2G_site)
+        os.remove(path=file_2G_path)    
+
     
-    door_path=os.path.join(MEDIA_ROOT,'trends','del')
+    door_path=os.path.join(MEDIA_ROOT,'trends','del','del4G')
 
     # str=os.path.join(door_path,'inputs','SITES.xlsx')
     # df_site=pd.read_excel(str)
@@ -89,7 +111,7 @@ def old_del4G_trend(request):
     df_raw_kpi_4G["Short name"].fillna( inplace=True, method="ffill")
     df_raw_kpi_4G.rename( columns={'Unnamed: 1':'date'}, inplace=True )
 
-    print(df_raw_kpi_4G.columns)
+    # print(df_raw_kpi_4G.columns)
 
 
 
@@ -108,8 +130,8 @@ def old_del4G_trend(request):
         cell_id_lis.append(cell_id)
         sit_id_lis.append(sit_id)
 
-    print(sit_id)
-    print(cell_id_lis)
+    # print(sit_id)
+    # print(cell_id_lis)
 
     df_raw_kpi_4G.insert(1, "SITE_ID", sit_id_lis)
     df_raw_kpi_4G.insert(2, "CELL_ID", cell_id_lis)
@@ -153,15 +175,17 @@ def old_del4G_trend(request):
     dt5 = date1 - timedelta(5)
     ls=[dt1,dt2,dt3,dt4,dt5]
 
-    def perticular_tech( tech,site_list):
-        # df_filtered = df_all_tech_kpi[(df_all_tech_kpi.SITE_ID.isin(site_list)) & (df_all_tech_kpi.date.isin(ls))]
+    def perticular_tech(tech,site_list):
         df_filtered = df_raw_kpi_4G[(df_raw_kpi_4G.SITE_ID.isin(site_list)) & (df_raw_kpi_4G.date.isin(ls))& (df_raw_kpi_4G.Shortname.str.contains('|'.join(tech)))]
-        print(df_filtered)
+        # print(df_filtered)
         PsOs_filter=os.path.join(door_path,'process_outputs','last_filtered_input.xlsx')
         df_filtered.to_excel(PsOs_filter)
         df_pivoted = df_filtered.pivot_table(index=["SITE_ID","Shortname","CELL_ID",'ENBID','SECTOR'], columns="date")
-        print(df_pivoted)
-        PsOs_pivot=os.path.join(door_path,'process_outputs','pivoted.xlsx')
+        # print(df_pivoted)
+        save_name=str(tech) +"_pivot.xlsx"
+        print("_________________________savename_________________________",tech)
+        PsOs_pivot=os.path.join(door_path,'process_outputs',save_name)
+       
         df_pivoted.to_excel(PsOs_pivot)
         return df_filtered,df_pivoted
 
@@ -241,9 +265,8 @@ def old_del4G_trend(request):
     # for fdd
     pivot_fdd=perticular_tech(["_F3_"],site_list)[1]
     PsOs_blnk_temp=os.path.join(door_path,'template','DEL KPIs Submission_L1800.xlsx')
-    path_of_blnk_temp=PsOs_blnk_temp
-    trend_wb_L1800=load_workbook(path_of_blnk_temp)
-    # print(trend_wb.sheetnames)
+    # path_of_blnk_temp=PsOs_blnk_temp
+    trend_wb_L1800=load_workbook(PsOs_blnk_temp)
     trend_ws=trend_wb_L1800["KPI"]
     for kpi_name in kpi:
         if(kpi_name=="MV_RRC Setup Success Rate"):
@@ -548,83 +571,22 @@ def old_del4G_trend(request):
        if(kpi_name=="MV_E-UTRAN Average CQI [CDBH]"):
             overwrite(pivot_fdd,kpi_name,"EG",trend_ws)
 
-    save_wb_L2100=os.path.join(door_path,'output','out_DEL KPIs Submission_L2100.xlsx')
+    save_wb_L2100=os.path.join(MEDIA_ROOT,'trends','del','output','output','out_DEL KPIs Submission_L2100.xlsx')
     trend_wb_L2100.save(save_wb_L2100)
-    save_wb_L2300=os.path.join(door_path,'output','out_DEL KPIs Submission_L2300.xlsx')
+    save_wb_L2300=os.path.join(MEDIA_ROOT,'trends','del','output','output','out_DEL KPIs Submission_L2300.xlsx')
     trend_wb_L2300.save(save_wb_L2300)
-    save_wb_L1800=os.path.join(door_path,'output','out_DEL KPIs Submission_L1800.xlsx')
+    save_wb_L1800=os.path.join(MEDIA_ROOT,'trends','del','output','output','out_DEL KPIs Submission_L1800.xlsx')
     trend_wb_L1800.save(save_wb_L1800)
-    save_wb_L900=os.path.join(door_path,'output','out_DEL KPIs Submission_L900.xlsx')
-    trend_wb_L900.save(save_wb_L900)
+    save_wb_L900=os.path.join(MEDIA_ROOT,'trends','del','output','output','out_DEL KPIs Submission_L900.xlsx')
+    trend_wb_L900.save(save_wb_L900)  
 
-
-
-    def get_all_file_paths(directory):
-    
-        # initializing empty file paths list
-        file_paths = []
-    
-        # crawling through directory and subdirectories
-        for root, directories, files in os.walk(directory):
-            for filename in files:
-                # join the two strings in order to form the full filepath.
-                filepath = os.path.join(root, filename)
-                file_paths.append(filepath)
-    
-        # returning all file paths
-        return file_paths        
-    
-    def main1():
-        
-        directory = os.path.join(door_path,'output')
-    
-        file_paths = get_all_file_paths(directory)
-    
-
-        print('Following files will be zipped:')
-        for file_name in file_paths:
-            print(file_name)
-    
-
-        with ZipFile(os.path.join(door_path,'output','output','del_output.zip'),'w') as zip:
-            # writing each file one by one
-            for file in file_paths:
-                zip.write(file)
-    
-        print('All files zipped successfully!') 
-
-
-    main1()
-    download_path=os.path.join(MEDIA_URL,'trends','del','output','del_output.zip')
-    return Response({'status':True,'message':'successfully','Download_url':download_path})
-
-
+   
+   
 ##############################2G##################
-@api_view(["POST"])
-def old_del2G_trend(request):
-    raw_kpi_2G=request.FILES['raw_kpi_2G'] if 'raw_kpi_2G' in request.FILES else None
-    print('________________________________raw__________________')
-    if raw_kpi_2G:
-        location=MEDIA_ROOT +r'\trends\temporary_files'
-        print("_____________location",location)
-        fs=FileSystemStorage(location=location)
-        file_2G=fs.save(raw_kpi_2G.name,raw_kpi_2G)
-        file_2G_path=fs.path(file_2G)
-        df_raw_kpi_2G=pd.read_excel(file_2G_path)
-        print(df_raw_kpi_2G)
-        os.remove(path=file_2G_path)
 
-    site_list_2G=request.FILES['site_list_2G'] if 'site_list_2G' in request.FILES else None
-    if site_list_2G:
-        location=MEDIA_ROOT+r'\trends\temporary_files'
-        fs=FileSystemStorage(location=location)
-        file_2G_sheet=fs.save(site_list_2G.name,site_list_2G)
-        file_2G_path=fs.path(file_2G_sheet)
-        df_2G_site=pd.read_excel(file_2G_path)
-        print(df_2G_site)
-        os.remove(path=file_2G_path)
+   
 
-    door_path=os.path.join(MEDIA_ROOT,'trends','del')
+    door_path=os.path.join(MEDIA_ROOT,'trends','del','del2G')
 
     df_raw_kpi_2G['Short name']=df_raw_kpi_2G['Short name'].fillna(method=('ffill'))
     df_raw_kpi_2G.columns.values[1]='DATE'
@@ -781,9 +743,41 @@ def old_del2G_trend(request):
             overwrite(gsm_name,'BV',ws1)  
         if(gsm_name=='TNDROP [BBH]'):
             overwrite(gsm_name,'CA',ws1) 
-    save_outputs=os.path.join(door_path,'output','2G_Output_Trend.xlsx')        
+    save_outputs=os.path.join(MEDIA_ROOT,'del','output','output','2G_Output_Trend.xlsx')        
     wb.save(save_outputs) 
-       
-    download_path_gsm=os.path.join(MEDIA_URL,'trends','del','output','2G_Output_Trend.xlsx')
+    # save_wb_L2100=os.path.join(door_path,'output','out_DEL KPIs Submission_L2100.xlsx')
+    # trend_wb_L2100.save(save_wb_L2100)
+    # save_wb_L2300=os.path.join(door_path,'output','out_DEL KPIs Submission_L2300.xlsx')
+    # trend_wb_L2300.save(save_wb_L2300)
+    # save_wb_L1800=os.path.join(door_path,'output','out_DEL KPIs Submission_L1800.xlsx')
+    # trend_wb_L1800.save(save_wb_L1800)
+    # save_wb_L900=os.path.join(door_path,'output','out_DEL KPIs Submission_L900.xlsx')
+    # trend_wb_L900.save(save_wb_L900)
 
-    return Response({'status':True,'Download_url':download_path_gsm,'message':'successfully'})
+
+    # file_paths=[]
+    # for root,directories,files in os.walk(r'/mcom_website/media/trends/del/output/output'):
+    #     for filename in files:
+    #         filepath=os.path.join(root,filename)
+    #         file_paths.append(filepath)
+    # with ZipFile(r'/mcom_website/media/trends/del/output/output/output.zip','w') as zip:
+    #     for file in file_paths:
+    #         zip.write(file)
+     
+    # download_path=os.path.join(MEDIA_URL,'trends','del','output','output','output.zip')
+    download_path1=os.path.join(MEDIA_URL,'trends','del','output','output','2G_Output_Trend.xlsx')
+    download_path2=os.path.join(MEDIA_URL,'trends','del','output','output','out_DEL KPIs Submission_L2100.xlsx')
+    download_path3=os.path.join(MEDIA_URL,'trends','del','output','output','out_DEL KPIs Submission_L1800.xlsx')
+    download_path4=os.path.join(MEDIA_URL,'trends','del','output','output','out_DEL KPIs Submission_L2300.xlsx')
+    download_path5=os.path.join(MEDIA_URL,'trends','del','output','output','out_DEL KPIs Submission_L900.xlsx')
+
+
+
+
+
+
+    
+    
+
+    return Response({'status':True,'message':'successfully','Download_url1':download_path1,'Download_url2':download_path2,
+                     'Download_url3':download_path3,'Download_url4':download_path4,'Download_url5':download_path5})
